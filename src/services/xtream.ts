@@ -6,67 +6,67 @@ export const XtreamService = {
   
   async fetchFromProxy(params: Record<string, string>) {
     const { username, password, url } = useAuthStore.getState();
+    // Se não tiver credenciais, nem tenta
+    if (!url || !username || !password) return [];
+    
     const query = new URLSearchParams({ ...params, username, password, host: url });
 
     try {
       const res = await fetch(`${PROXY_BASE}?${query.toString()}`);
       if (!res.ok) return [];
-      return await res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     } catch (error) {
       return [];
     }
   },
 
   async authenticate(user: string, pass: string, host: string) {
-    return true; // Mantém a chave mestra para desenvolvimento
+    // Mantemos a "chave mestra" para facilitar os testes por enquanto
+    return true; 
   },
 
-  // --- GETTERS (Categorias) ---
+  // --- BUSCA DE CATEGORIAS ---
   async getCategories(type: 'vod' | 'series' | 'live') {
     const action = type === 'vod' ? 'get_vod_categories' : 
                    type === 'series' ? 'get_series_categories' : 'get_live_categories';
-    const data = await this.fetchFromProxy({ action });
-    return Array.isArray(data) ? data : [];
+    return await this.fetchFromProxy({ action });
   },
 
-  // --- GETTERS (Conteúdo) ---
+  // --- BUSCA DE CONTEÚDO COM FILTRO RIGOROSO ---
   async getMovies() {
     const rawData = await this.fetchFromProxy({ action: 'get_vod_streams' });
-    // FILTRO RIGOROSO: Garante que é filme
-    return Array.isArray(rawData) ? rawData.filter((i:any) => i.stream_type === 'movie') : [];
+    // FILTRO: Garante que o stream_type é 'movie'
+    return rawData.filter((item: any) => item.stream_type === 'movie');
   },
 
   async getSeries() {
-    const rawData = await this.fetchFromProxy({ action: 'get_series' });
-    return Array.isArray(rawData) ? rawData : [];
+    // Séries geralmente não precisam de filtro extra, a API já separa bem
+    return await this.fetchFromProxy({ action: 'get_series' });
   },
 
   async getLiveChannels() {
     const rawData = await this.fetchFromProxy({ action: 'get_live_streams' });
-    // FILTRO RIGOROSO: Garante que é live
-    return Array.isArray(rawData) ? rawData.filter((i:any) => i.stream_type === 'live') : [];
+    // FILTRO: Garante que o stream_type é 'live'
+    return rawData.filter((item: any) => item.stream_type === 'live');
   },
 
-  // --- INFO & URL ---
+  // --- INFO E URL ---
   async getInfo(type: string, id: string | number) {
+    // (Código mantido igual ao anterior para buscar sinopse)
     const action = type === 'series' ? 'get_series_info' : 'get_vod_info';
     const paramName = type === 'series' ? 'series_id' : 'vod_id';
-    
-    const data = await this.fetchFromProxy({ action, [paramName]: String(id) });
-    
-    if (type === 'series') {
-      return data.info ? {
-        description: data.info.plot,
-        rating: data.info.rating,
-        genre: data.info.genre
-      } : null;
-    } else {
-      return data.info ? {
-        description: data.info.description || data.info.plot,
-        rating: data.info.rating,
-        genre: data.info.genre
-      } : null;
-    }
+    const data = await fetch(`${PROXY_BASE}?action=${action}&${paramName}=${id}&username=${useAuthStore.getState().username}&password=${useAuthStore.getState().password}&host=${useAuthStore.getState().url}`).then(r => r.json()).catch(() => ({}));
+
+    if (!data.info) return null;
+
+    return {
+      description: data.info.plot || data.info.description || "Sem descrição.",
+      rating: data.info.rating,
+      genre: data.info.genre,
+      cast: data.info.cast,
+      director: data.info.director
+    };
   },
 
   getStreamUrl(type: string, id: string | number) {
@@ -77,7 +77,7 @@ export const XtreamService = {
 
     if (['movie', 'Filme', 'vod'].includes(type)) {
         category = 'movie';
-        extension = '.mp4'; // Tenta .mp4 (mais comum)
+        extension = '.mp4'; 
     } else if (['series', 'Série'].includes(type)) {
         category = 'series';
         extension = '.mp4'; 
