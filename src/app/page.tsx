@@ -15,41 +15,37 @@ type TabType = 'filmes' | 'series' | 'aovivo';
 export default function HomePage() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
-  // Pegamos os dados já limpos do Store
   const { isLoaded, setAllContent, movies, series, channels, categories } = useContentStore();
   
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('filmes');
-  
   const [groupedData, setGroupedData] = useState<Record<string, any[]>>({});
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  
-  // Se já está carregado no Store, não mostra loading
   const [isLoading, setIsLoading] = useState(!isLoaded);
   const [loadStatus, setLoadStatus] = useState("Iniciando...");
   const [loadProgress, setLoadProgress] = useState(0);
 
-  // 1. Carga Inicial (Só roda se o Store estiver vazio)
+  // 1. Carga Inicial Otimizada
   useEffect(() => {
     setMounted(true);
     if (!isAuthenticated) { router.push('/login'); return; }
-    if (isLoaded) { setIsLoading(false); return; } // Já temos dados!
+    if (isLoaded) { setIsLoading(false); return; }
 
     const fetchAll = async () => {
       try {
-        setLoadStatus("Conectando ao Servidor..."); setLoadProgress(20);
+        setLoadStatus("Conectando..."); setLoadProgress(20);
         const [catVod, catSer, catLive] = await Promise.all([
           XtreamService.getCategories('vod'), XtreamService.getCategories('series'), XtreamService.getCategories('live')
         ]);
-        setLoadProgress(50);
-        setLoadStatus("Baixando e Filtrando Conteúdo...");
-        // O XtreamService agora aplica o filtro rigoroso aqui
+        setLoadProgress(40);
+        
+        setLoadStatus("Baixando Catálogo...");
+        // Otimização: Baixa tudo, o filtro acontece no processamento
         const [mov, ser, live] = await Promise.all([
           XtreamService.getMovies(), XtreamService.getSeries(), XtreamService.getLiveChannels()
         ]);
         setLoadProgress(90);
         
-        // Salva no cofre global
         setAllContent({ movies: mov, series: ser, channels: live, categories: { vod: catVod, series: catSer, live: catLive } });
         setLoadProgress(100);
         setTimeout(() => setIsLoading(false), 500);
@@ -58,11 +54,10 @@ export default function HomePage() {
     fetchAll();
   }, [isAuthenticated, isLoaded, router, setAllContent]);
 
-  // 2. Processamento e Agrupamento (Roda quando muda a aba)
+  // 2. Agrupamento Inteligente
   useEffect(() => {
     if (!isLoaded) return;
 
-    // Escolhe a fonte de dados correta baseada na aba
     let sourceItems: any[] = [];
     let sourceCats: any[] = [];
     
@@ -80,52 +75,68 @@ export default function HomePage() {
       groups[catName].push(item);
     });
 
-    setGroupedData(groups);
+    // Filtra categorias vazias e ordena
+    const ordered = Object.keys(groups).sort().reduce((acc: any, key) => {
+      if (groups[key].length > 0) acc[key] = groups[key];
+      return acc;
+    }, {});
+
+    setGroupedData(ordered);
   }, [activeTab, isLoaded, movies, series, channels, categories]);
 
   if (!mounted) return <div className="min-h-screen bg-[#0F0F0F]" />;
   if (isLoading) return <StartupLoader status={loadStatus} progress={loadProgress} />;
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-white pb-24 md:pb-10">
-      <header className="px-4 py-4 sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-none md:pt-8">
-        <h1 className="text-lg font-bold mb-4 md:hidden">Lumina Play</h1>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+    <div className="min-h-screen bg-[#0F0F0F] text-white pb-20 md:pb-10 overflow-x-hidden">
+      
+      {/* Header */}
+      <header className="px-4 py-3 sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-none md:pt-6">
+        <h1 className="text-lg font-bold mb-3 md:hidden text-center">Lumina Play</h1>
+        <div className="flex justify-center gap-4">
           <TabButton label="Filmes" isActive={activeTab === 'filmes'} onClick={() => setActiveTab('filmes')} />
           <TabButton label="Séries" isActive={activeTab === 'series'} onClick={() => setActiveTab('series')} />
           <TabButton label="Ao Vivo" isActive={activeTab === 'aovivo'} onClick={() => setActiveTab('aovivo')} />
         </div>
       </header>
 
-      <main className="space-y-8 mt-6 px-4 md:px-0 pb-10">
+      <main className="mt-4 px-4 md:px-6 space-y-8">
         {Object.keys(groupedData).length > 0 ? (
-          Object.keys(groupedData).sort().map((category) => (
+          Object.entries(groupedData).map(([category, items]) => (
             <section key={category} className="animate-in fade-in duration-500">
-              <h2 className="text-base md:text-xl font-bold text-gray-100 mb-3 md:px-5">{category}</h2>
+              {/* Título da Categoria */}
+              <h2 className="text-sm md:text-lg font-bold text-gray-200 mb-3 flex items-center gap-2">
+                {category}
+                <span className="text-[10px] text-gray-500 border border-white/10 px-1.5 rounded font-normal">
+                  {items.length > 15 ? '15+' : items.length}
+                </span>
+              </h2>
               
-              {/* --- MUDANÇA DE LAYOUT AQUI --- */}
-              {/* Mobile: Grid vertical de 2 colunas */}
-              {/* Desktop (md:): Flex horizontal (trilho) */}
-              <div className="grid grid-cols-2 gap-3 md:flex md:overflow-x-auto md:pb-4 md:scrollbar-hide md:snap-x md:snap-mandatory md:gap-4 md:px-5">
-                {groupedData[category].map((item: any) => (
-                  <div key={item.stream_id || item.series_id} className="md:snap-start md:flex-shrink-0" onClick={() => setSelectedItem(item)}>
+              {/* TRILHO HORIZONTAL (OTIMIZADO) */}
+              {/* slice(0, 15) -> O SEGREDO DA PERFORMANCE: Mostra apenas 15 itens */}
+              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                {items.slice(0, 15).map((item: any) => (
+                  <div key={item.stream_id || item.series_id} className="snap-start flex-shrink-0" onClick={() => setSelectedItem(item)}>
                     <div className="pointer-events-none"> 
                         <MediaCard 
                           id={item.stream_id || item.series_id}
                           title={item.name} 
                           image={item.stream_icon || item.cover} 
-                          type={activeTab} 
+                          type={activeTab === 'aovivo' ? 'Ao Vivo' : 'Vod'} 
                         />
                     </div>
                   </div>
                 ))}
+                {/* Espaço final para não cortar o último item */}
+                <div className="w-4 flex-shrink-0" />
               </div>
             </section>
           ))
         ) : (
-           <div className="text-center mt-20 text-gray-500">Nenhum conteúdo encontrado.</div>
+           <div className="text-center mt-20 text-gray-500 text-sm">Nada encontrado nesta seção.</div>
         )}
       </main>
+
       <DetailsModal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} item={selectedItem} />
     </div>
   );
@@ -133,7 +144,7 @@ export default function HomePage() {
 
 function TabButton({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) {
   return (
-    <button onClick={onClick} className={clsx("px-5 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap", isActive ? "bg-white text-black shadow-lg" : "bg-white/10 text-gray-400")}>
+    <button onClick={onClick} className={clsx("px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all", isActive ? "bg-white text-black font-bold shadow-lg" : "bg-white/5 text-gray-400 hover:bg-white/10")}>
       {label}
     </button>
   );
