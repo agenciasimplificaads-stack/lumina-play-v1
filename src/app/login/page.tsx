@@ -7,7 +7,7 @@ import { XtreamService } from '@/services/xtream';
 import { Loader2, PlayCircle } from 'lucide-react';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const router = useRouter(); // [NEXUS: FINAL CACHE FIX]
   const login = useAuthStore((state) => state.login);
   
   const [loading, setLoading] = useState(false);
@@ -119,3 +119,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
