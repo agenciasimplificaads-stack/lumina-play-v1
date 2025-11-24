@@ -10,32 +10,30 @@ export const XtreamService = {
 
     try {
       const res = await fetch(`${PROXY_BASE}?${query.toString()}`);
-      if (!res.ok) throw new Error('Falha Proxy');
+      if (!res.ok) return [];
       return await res.json();
     } catch (error) {
-      console.warn("Erro fetch:", error);
       return [];
     }
   },
 
   async authenticate(user: string, pass: string, host: string) {
-    // Mantém a lógica de "Chave Mestra" que fizemos antes
-    return true; 
+    return true; // Mantém a chave mestra para desenvolvimento
   },
 
-  // --- BUSCA DE DADOS (AGORA COM CATEGORIAS) ---
-
-  // 1. Buscar lista de nomes das categorias (Ex: ID 5 = Ação)
+  // --- GETTERS (Categorias) ---
   async getCategories(type: 'vod' | 'series' | 'live') {
     const action = type === 'vod' ? 'get_vod_categories' : 
                    type === 'series' ? 'get_series_categories' : 'get_live_categories';
-    return await this.fetchFromProxy({ action });
+    const data = await this.fetchFromProxy({ action });
+    return Array.isArray(data) ? data : [];
   },
 
-  // 2. Buscar Tudo (Mantido)
+  // --- GETTERS (Conteúdo) ---
   async getMovies() {
     const rawData = await this.fetchFromProxy({ action: 'get_vod_streams' });
-    return Array.isArray(rawData) ? rawData : [];
+    // FILTRO RIGOROSO: Garante que é filme
+    return Array.isArray(rawData) ? rawData.filter((i:any) => i.stream_type === 'movie') : [];
   },
 
   async getSeries() {
@@ -45,45 +43,41 @@ export const XtreamService = {
 
   async getLiveChannels() {
     const rawData = await this.fetchFromProxy({ action: 'get_live_streams' });
-    return Array.isArray(rawData) ? rawData : [];
+    // FILTRO RIGOROSO: Garante que é live
+    return Array.isArray(rawData) ? rawData.filter((i:any) => i.stream_type === 'live') : [];
   },
 
-  // 3. Buscar Detalhes (Sinopse)
+  // --- INFO & URL ---
   async getInfo(type: string, id: string | number) {
     const action = type === 'series' ? 'get_series_info' : 'get_vod_info';
     const paramName = type === 'series' ? 'series_id' : 'vod_id';
     
     const data = await this.fetchFromProxy({ action, [paramName]: String(id) });
     
-    // O Xtream retorna estruturas diferentes para filmes e séries
     if (type === 'series') {
       return data.info ? {
-        description: data.info.plot || "Sem sinopse disponível.",
-        director: data.info.director,
-        cast: data.info.cast,
-        rating: data.info.rating
+        description: data.info.plot,
+        rating: data.info.rating,
+        genre: data.info.genre
       } : null;
     } else {
       return data.info ? {
-        description: data.info.description || data.info.plot || "Sem sinopse disponível.",
-        director: data.info.director,
-        cast: data.info.cast,
-        rating: data.info.rating
+        description: data.info.description || data.info.plot,
+        rating: data.info.rating,
+        genre: data.info.genre
       } : null;
     }
   },
 
-  // --- URL GENERATOR ---
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
     let category = 'live';
     let extension = '.m3u8';
 
-    // Padronização dos tipos
     if (['movie', 'Filme', 'vod'].includes(type)) {
         category = 'movie';
-        extension = '.mp4'; // Tenta MP4 primeiro para filmes
+        extension = '.mp4'; // Tenta .mp4 (mais comum)
     } else if (['series', 'Série'].includes(type)) {
         category = 'series';
         extension = '.mp4'; 
