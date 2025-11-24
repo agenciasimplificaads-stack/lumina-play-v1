@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { XtreamService } from '@/services/xtream';
 import MediaCard from '@/components/MediaCard';
-import { Loader2 } from 'lucide-react';
+import StartupLoader from '@/components/StartupLoader'; // <--- NOVO
 import clsx from 'clsx';
 
 type TabType = 'filmes' | 'series' | 'aovivo';
@@ -15,9 +15,17 @@ export default function HomePage() {
   const { isAuthenticated } = useAuthStore();
   
   const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('filmes');
-  const [content, setContent] = useState<any>(null);
+  
+  // Controle de Dados
+  const [moviesData, setMoviesData] = useState<any>(null);
+  const [seriesData, setSeriesData] = useState<any>(null);
+  const [liveData, setLiveData] = useState<any>(null);
+
+  // Controle de Carregamento
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadStatus, setLoadStatus] = useState("Iniciando...");
+  const [loadProgress, setLoadProgress] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -25,28 +33,57 @@ export default function HomePage() {
       router.push('/login');
       return;
     }
-    loadTabContent('filmes');
+
+    // --- SEQUÊNCIA DE INICIALIZAÇÃO ESTILO XCIPTV ---
+    const initApp = async () => {
+      try {
+        setLoadStatus("Baixando Filmes...");
+        setLoadProgress(10);
+        const movies = await XtreamService.getMovies();
+        setMoviesData(movies);
+        
+        setLoadStatus("Baixando Séries...");
+        setLoadProgress(45);
+        const series = await XtreamService.getSeries();
+        setSeriesData(series);
+
+        setLoadStatus("Atualizando Guia de Canais...");
+        setLoadProgress(80);
+        const channels = await XtreamService.getLiveChannels();
+        setLiveData(channels);
+
+        setLoadStatus("Finalizando...");
+        setLoadProgress(100);
+        
+        // Pequeno delay para ver o 100%
+        setTimeout(() => setIsLoading(false), 800);
+
+      } catch (error) {
+        console.error("Erro no load:", error);
+        setIsLoading(false); // Entra mesmo com erro
+      }
+    };
+
+    initApp();
   }, [isAuthenticated, router]);
 
-  const loadTabContent = async (tab: TabType) => {
-    setLoading(true);
-    setActiveTab(tab);
-    let data;
-    switch(tab) {
-      case 'filmes': data = await XtreamService.getMovies(); break;
-      case 'series': data = await XtreamService.getSeries(); break;
-      case 'aovivo': data = await XtreamService.getLiveChannels(); break;
-    }
-    setContent(data);
-    setLoading(false);
-  };
+  // Define qual conteúdo mostrar baseado na aba
+  const currentContent = 
+    activeTab === 'filmes' ? moviesData :
+    activeTab === 'series' ? seriesData :
+    liveData;
 
   if (!mounted) return <div className="min-h-screen bg-[#0F0F0F]" />;
+
+  // Se estiver carregando, mostra a Tela de Startup
+  if (isLoading) {
+    return <StartupLoader status={loadStatus} progress={loadProgress} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#0F0F0F] text-white pb-24 md:pb-10">
       
-      {/* Header */}
+      {/* Header Sticky */}
       <header className="px-5 py-4 sticky top-0 z-30 bg-[#0F0F0F]/90 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-none md:backdrop-blur-none md:pt-8">
         <div className="flex items-center gap-3 mb-4 md:hidden">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-lg shadow-white/10">
@@ -56,33 +93,28 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
-          <TabButton label="Filmes" isActive={activeTab === 'filmes'} onClick={() => loadTabContent('filmes')} />
-          <TabButton label="Séries" isActive={activeTab === 'series'} onClick={() => loadTabContent('series')} />
-          <TabButton label="Ao Vivo" isActive={activeTab === 'aovivo'} onClick={() => loadTabContent('aovivo')} />
+          <TabButton label="Filmes" isActive={activeTab === 'filmes'} onClick={() => setActiveTab('filmes')} />
+          <TabButton label="Séries" isActive={activeTab === 'series'} onClick={() => setActiveTab('series')} />
+          <TabButton label="Ao Vivo" isActive={activeTab === 'aovivo'} onClick={() => setActiveTab('aovivo')} />
         </div>
       </header>
 
       <main className="space-y-6 mt-2 md:mt-0">
-        {loading ? (
-          <div className="flex h-64 items-center justify-center animate-pulse">
-            <Loader2 className="animate-spin text-white/50" size={32} />
-          </div>
-        ) : (
-          content && (
+          {currentContent && (
             <section className="animate-in fade-in slide-in-from-bottom-4 duration-500">
               <h2 className="px-5 text-base md:text-2xl font-semibold text-gray-100 mb-4 flex items-center gap-2">
-                {content.title}
+                {currentContent.title}
                 <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded text-gray-400 font-normal border border-white/5">
-                  Populares
+                  {currentContent.items?.length || 0} Itens
                 </span>
               </h2>
               
+              {/* Grid Responsivo */}
               <div className="px-5 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory flex gap-3 md:grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 md:gap-4 md:overflow-visible">
-                {content.items.map((item: any) => (
+                {currentContent.items?.slice(0, 500).map((item: any) => ( // Renderiza até 500 itens por aba para não travar o DOM
                   <div key={item.id} className="snap-start flex-shrink-0 md:flex-shrink">
-                    {/* AQUI ESTÁ A MUDANÇA QUE FIZ PARA VOCÊ: */}
                     <MediaCard 
-                      id={item.id}   // <--- Passei o ID aqui
+                      id={item.id}
                       title={item.title} 
                       image={item.image} 
                       type={item.type} 
@@ -91,8 +123,7 @@ export default function HomePage() {
                 ))}
               </div>
             </section>
-          )
-        )}
+          )}
       </main>
     </div>
   );
