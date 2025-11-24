@@ -20,7 +20,6 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const router = useRouter();
   const playerRef = useRef(null);
   
-  // AQUI: Pegamos o estado de hidratação
   const { isLogged, _hasHydrated } = useAuthStore(); 
   
   const [streamUrl, setStreamUrl] = useState('');
@@ -30,54 +29,42 @@ export default function PlayerPage({ params }: PlayerPageProps) {
   const { type, id } = params;
 
   useEffect(() => {
-    // 1. ESPERE A HIDRATAÇÃO: Se ainda não carregou do Local Storage, SAIA.
-    // Isso impede o redirecionamento instantâneo.
     if (!_hasHydrated) {
         return;
     }
     
-    // 2. REDIRECIONAMENTO: Agora que o estado real foi lido, verifique o login.
     if (!isLogged) {
-      router.replace('/login'); // Usa replace para não empilhar histórico
+      router.replace('/login');
       return;
     }
 
-    // 3. Geração da URL (apenas se logado e hidratado)
     const rawStreamUrl = XtreamService.getStreamUrl(type, id);
     const tunnelUrl = `/api/stream?url=${encodeURIComponent(rawStreamUrl)}`;
     
     setStreamUrl(tunnelUrl);
 
-  }, [isLogged, _hasHydrated, type, id, router]); // Adicionamos _hasHydrated como dependência
+  }, [isLogged, _hasHydrated, type, id, router]);
 
-  // ... (função handleBack e handleScreenClick mantidas iguais) ...
+  const handleBack = () => {
+    router.back();
+  };
 
-  // NOVA LÓGICA DE RENDERIZAÇÃO:
-  // Se não está hidratado OU não tem a URL do stream, mostra o loading.
+  const handleScreenClick = () => {
+    setShowControls(true);
+    setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  };
+  
+  // --- RETORNO DE ERRO E LOADING (CORRIGIDO) ---
+  // Se não estiver pronto ou tiver erro, retorna a tela de status.
   if (!_hasHydrated || !streamUrl || error) {
     return (
         <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-4">
             {error ? (
-                // Lógica de erro (mantida igual)
                 <>
                     <h1 className="text-xl mb-4 text-red-500">Erro de Reprodução</h1>
-                    <p className="mb-8 text-center">Não foi possível carregar o stream. Isso pode ser um bloqueio de segurança (HTTP/406) do servidor IPTV ou problemas com a URL.</p>
-                    <button 
-                        onClick={handleBack} 
-                        className="flex items-center gap-2 bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-gray-200 transition-all"
-                    >
-                        <ArrowLeft size={20} /> Voltar
-                  // ... (código anterior mantido) ...
-
-  // Renderiza apenas se tiver a URL do stream
-  // Se não estiver hidratado ou logado, a lógica acima já mostra um spinner/redireciona
-  if (!streamUrl || error) {
-    return (
-        <div className="flex flex-col items-center justify-center h-screen bg-black text-white p-4">
-            {error ? (
-                <>
-                    <h1 className="text-xl mb-4 text-red-500">Erro de Reprodução</h1>
-                    <p className="mb-8 text-center">Não foi possível carregar o stream. Isso pode ser um bloqueio de segurança (HTTP/406) do servidor IPTV ou problemas com a URL.</p>
+                    <p className="mb-8 text-center">Não foi possível carregar o stream. Verifique o console ou tente novamente.</p>
                     <button 
                         onClick={handleBack} 
                         className="flex items-center gap-2 bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-gray-200 transition-all"
@@ -86,7 +73,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
                     </button>
                 </>
             ) : (
-                // Tela de Loading while waiting for URL
+                // Tela de Loading enquanto espera a hidratação ou a URL
                 <div className="flex items-center justify-center h-screen bg-black">
                     <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-white"></div>
                 </div>
@@ -95,7 +82,7 @@ export default function PlayerPage({ params }: PlayerPageProps) {
     );
   }
   
-  // RENDERIZAÇÃO FINAL: O Player e Controles
+  // --- RETORNO FINAL: O PLAYER ---
   return (
     <div 
         className="w-full h-screen bg-black relative flex items-center justify-center overflow-hidden" 
