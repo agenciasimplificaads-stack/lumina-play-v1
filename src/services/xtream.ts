@@ -6,7 +6,6 @@ export const XtreamService = {
   
   async fetchFromProxy(params: Record<string, string>) {
     const { username, password, url } = useAuthStore.getState();
-    // Se não tiver credenciais, nem tenta
     if (!url || !username || !password) return [];
     
     const query = new URLSearchParams({ ...params, username, password, host: url });
@@ -32,10 +31,9 @@ export const XtreamService = {
     return await this.fetchFromProxy({ action });
   },
 
-  // --- BUSCA DE CONTEÚDO COM FILTRO RIGOROSO ---
+  // --- BUSCA DE CONTEÚDO ---
   async getMovies() {
     const rawData = await this.fetchFromProxy({ action: 'get_vod_streams' });
-    // FILTRO: Garante que o stream_type é 'movie'
     return rawData.filter((item: any) => item.stream_type === 'movie');
   },
 
@@ -45,7 +43,6 @@ export const XtreamService = {
 
   async getLiveChannels() {
     const rawData = await this.fetchFromProxy({ action: 'get_live_streams' });
-    // FILTRO: Garante que o stream_type é 'live'
     return rawData.filter((item: any) => item.stream_type === 'live');
   },
 
@@ -54,7 +51,6 @@ export const XtreamService = {
     const action = type === 'series' ? 'get_series_info' : 'get_vod_info';
     const paramName = type === 'series' ? 'series_id' : 'vod_id';
     
-    // Pequena correção para evitar erro se o fetch falhar no getInfo
     try {
         const { username, password, url } = useAuthStore.getState();
         const query = new URLSearchParams({ 
@@ -80,7 +76,7 @@ export const XtreamService = {
     }
   },
 
-  // --- URL GENERATOR COM TÚNEL (PROXY DE VÍDEO) ---
+  // --- URL GENERATOR (PROXY) ---
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
@@ -95,12 +91,10 @@ export const XtreamService = {
         extension = '.mp4'; 
     }
 
-    // 1. URL Original Insegura
     const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
 
-    // 2. Retorna passando pelo nosso Proxy Seguro (/api/stream)
-    // Isso resolve o problema de "Mixed Content" e faz rodar no navegador
+    // Retorna passando pelo nosso Proxy Seguro
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
 
-}; // <--- O ERRO ESTAVA AQUI (Faltava fechar essa chave)
+};
