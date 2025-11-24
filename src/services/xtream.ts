@@ -100,6 +100,6 @@ export const XtreamService = {
     // Encode é vital para a URL passar pelo túnel
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
-
-}; 
+};
 // FIM DO ARQUIVO
+
