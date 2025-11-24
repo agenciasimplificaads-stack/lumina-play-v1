@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { X, Play, Star } from 'lucide-react';
 import { XtreamService } from '@/services/xtream';
-// Não importamos 'Link' do next, pois usaremos a tag <a> HTML pura.
+import Link from 'next/link'; 
 
 interface DetailsModalProps {
   isOpen: boolean;
@@ -21,7 +21,6 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
       setDetails(null);
       
       const type = item.type === 'Série' ? 'series' : 'vod';
-      
       if (item.type === 'Ao Vivo') {
         setLoading(false);
         return;
@@ -36,7 +35,7 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
 
   if (!isOpen || !item) return null;
 
-  // AQUI: Link HTTP Puro (Direto para o Stream)
+  // URL HTTP PURO: Dispara o Deep Link
   const streamUrl = XtreamService.getStreamUrl(item.type, item.id);
 
   return (
@@ -63,9 +62,12 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
             
             <div className="flex items-center gap-4 text-sm text-gray-400 mb-6">
               <span className="bg-white/20 px-2 py-0.5 rounded text-white font-medium">{item.type}</span>
+              {details?.rating && (
+                <span className="flex items-center gap-1 text-green-400"><Star size={14} fill="currentColor" /> {details.rating}</span>
+              )}
             </div>
 
-            {/* AQUI ESTÁ O DEEP LINK: Tag <a> com target="_blank" */}
+            {/* O BOTÃO DE AÇÃO QUE BYPASSA O BROWSER */}
             <div className="flex gap-3 mb-8">
               <a 
                 href={streamUrl} 
@@ -79,9 +81,13 @@ export default function DetailsModal({ isOpen, onClose, item }: DetailsModalProp
 
             <div className="space-y-4">
               <h3 className="font-semibold text-gray-300">Sinopse</h3>
-              <p className="text-gray-400 leading-relaxed text-sm md:text-base">
-                {details?.description || "Nenhuma descrição disponível."}
-              </p>
+              {loading ? (
+                <div className="h-20 bg-white/5 animate-pulse rounded-lg" />
+              ) : (
+                <p className="text-gray-400 leading-relaxed text-sm md:text-base">
+                  {details?.description || "Nenhuma descrição disponível."}
+                </p>
+              )}
             </div>
           </div>
         </div>
