@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Credenciais pré-preenchidas para facilitar
+  // Credenciais pré-preenchidas para teste
   const [host, setHost] = useState('http://svrhost.club');
   const [username, setUsername] = useState('B3L6A129');
   const [password, setPassword] = useState('7MZ3DR91');
@@ -24,17 +24,19 @@ export default function LoginPage() {
     setError('');
 
     try {
-      // Agora essa função SEMPRE retorna true (Chave Mestra)
+      // Tenta autenticar (Chave Mestra sempre permite acesso para teste/desenvolvimento)
       const isValid = await XtreamService.authenticate(username, password, host);
       
       if (isValid) {
-        login(username, password, host);
-        router.push('/'); 
+        // Salva as credenciais no store e marca como logado
+        login(username, password, host); 
+        router.push('/'); // Navega para a Home
       } else {
         setError('Login falhou. Tente novamente.');
       }
     } catch (err) {
-      // Fallback extra de segurança
+      // Se houver qualquer erro de rede/código, força o login para não travar
+      console.error("Erro no login, forçando acesso:", err);
       login(username, password, host);
       router.push('/');
     } finally {
@@ -45,7 +47,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0F0F0F] p-4 relative overflow-hidden">
       
-      {/* Background Sutil (Sem erros de console) */}
+      {/* Background Sutil */}
       <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/20 via-purple-900/10 to-black pointer-events-none" />
 
       <div className="z-10 w-full max-w-md space-y-8 rounded-2xl bg-black/60 p-8 backdrop-blur-xl border border-white/10 shadow-2xl">
@@ -67,7 +69,7 @@ export default function LoginPage() {
                 type="text"
                 value={host}
                 onChange={(e) => setHost(e.target.value)}
-                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white placeholder-gray-500 focus:border-white focus:ring-1 focus:ring-white transition-all outline-none"
+                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white focus:ring-1 focus:ring-white transition-all outline-none"
               />
             </div>
             <div>
@@ -76,7 +78,7 @@ export default function LoginPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white focus:border-white focus:ring-1 focus:ring-white transition-all outline-none"
+                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white focus:ring-1 focus:ring-white transition-all outline-none"
               />
             </div>
             <div>
@@ -85,7 +87,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white focus:border-white focus:ring-1 focus:ring-white transition-all outline-none"
+                className="block w-full rounded-lg border border-white/10 bg-black/50 p-3 text-white focus:ring-1 focus:ring-white transition-all outline-none"
               />
             </div>
           </div>
@@ -99,7 +101,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="group relative flex w-full justify-center rounded-lg bg-white px-3 py-3 text-sm font-semibold text-black hover:bg-gray-200 transition-all"
+            className="group relative flex w-full justify-center rounded-lg bg-white px-3 py-3 text-sm font-semibold text-black hover:bg-gray-200 transition-all disabled:opacity-50"
           >
             {loading ? (
               <Loader2 className="animate-spin h-5 w-5" />
@@ -108,6 +110,11 @@ export default function LoginPage() {
             )}
           </button>
         </form>
+      </div>
+      
+      {/* Aviso do Manifest 404 (Corrija isso!) */}
+      <div className="absolute bottom-2 text-xs text-red-500/80">
+        (⚠️ Lembre-se: O Vercel ainda reporta erro no manifest.json. Mova-o para a pasta public!)
       </div>
     </div>
   );
