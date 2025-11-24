@@ -94,6 +94,7 @@ export const XtreamService = {
     const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
 
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
-  }
+  };
 
 };
+
