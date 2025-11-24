@@ -1,48 +1,57 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-const BASE = 'http://svrhost.club';
+export async function GET(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  
+  const action = searchParams.get('action');
+  const user = searchParams.get('username');
+  const pass = searchParams.get('password');
+  const host = searchParams.get('host');
+  const category_id = searchParams.get('category_id');
+  const stream_id = searchParams.get('stream_id');
 
-async function forwardRequest(targetUrl: string, init: RequestInit) {
-  const res = await fetch(targetUrl, init);
-  const text = await res.text();
-  try {
-    const json = JSON.parse(text);
-    return json;
-  } catch (e) {
-    return { text };
+  if (!host || !user || !pass) {
+    return NextResponse.json({ error: 'Credenciais ausentes' }, { status: 400 });
   }
-}
 
-export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const params = url.searchParams;
-    const action = params.get('action') || '';
+    // Monta a URL
+    let apiUrl = `${host}/player_api.php?username=${user}&password=${pass}&action=${action}`;
+    if (category_id) apiUrl += `&category_id=${category_id}`;
+    if (stream_id) apiUrl += `&stream_id=${stream_id}`;
 
-    // Build target URL
-    const targetPath = action ? `/${action}` : '/';
-    const targetUrl = `${BASE}${targetPath}?${params.toString()}`;
+    console.log(`[Proxy] Tentando conectar: ${action} em ${host}`);
 
-    const payload = await forwardRequest(targetUrl, { method: 'GET' });
-    return NextResponse.json(payload);
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Proxy error' }, { status: 500 });
-  }
-}
+    // --- A CAMUFLAGEM (HEADERS) ---
+    // Fingimos ser um Player legítimo para o servidor não bloquear
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'IPTV Smarters Pro', // Crachá falso
+        'Accept': '*/*',
+        'Connection': 'keep-alive'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`[Proxy Error] Status: ${response.status}`);
+      throw new Error(`Erro no servidor IPTV: ${response.status}`);
+    }
 
-export async function POST(req: Request) {
-  try {
-    const url = new URL(req.url);
-    const params = url.searchParams;
-    const action = params.get('action') || '';
-    const body = await req.text();
+    const data = await response.json();
 
-    const targetPath = action ? `/${action}` : '/';
-    const targetUrl = `${BASE}${targetPath}?${params.toString()}`;
+    // Verifica se o servidor retornou erro de autenticação no JSON
+    // Alguns servidores retornam 200 OK mas com JSON {user_info: {auth: 0}}
+    if (data.user_info && data.user_info.auth === 0) {
+        console.error("[Proxy] Login Recusado pelo servidor");
+        return NextResponse.json({ error: 'Login inválido' }, { status: 401 });
+    }
 
-    const payload = await forwardRequest(targetUrl, { method: 'POST', body, headers: { 'content-type': 'application/json' } });
-    return NextResponse.json(payload);
-  } catch (err: any) {
-    return NextResponse.json({ error: err?.message || 'Proxy error' }, { status: 500 });
+    return NextResponse.json(data);
+    
+  } catch (error) {
+    console.error("[Proxy Falha Crítica]:", error);
+    // Retorna erro 500 para o frontend saber que falhou e usar o Demo se quiser
+    return NextResponse.json({ error: 'Falha ao conectar no servidor IPTV' }, { status: 500 });
   }
 }
