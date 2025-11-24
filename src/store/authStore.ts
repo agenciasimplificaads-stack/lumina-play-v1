@@ -1,28 +1,38 @@
+// Exemplo de como DEVE ser seu authStore (apenas a estrutura)
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface AuthState {
+  isLogged: boolean;
   username: string;
-  password: string;
-  url: string;
-  isAuthenticated: boolean;
-  login: (u: string, p: string, url: string) => void;
-  logout: () => void;
+  // ... outras propriedades
+  _hasHydrated: boolean; // NOVO: Estado de hidratação
+  setHasHydrated: (state: boolean) => void;
+  // ... outras ações
 }
 
-// A correção está aqui: garantindo a sintaxe correta do create()
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      isLogged: false,
       username: '',
-      password: '',
-      url: '',
-      isAuthenticated: false,
-      login: (username, password, url) => set({ username, password, url, isAuthenticated: true }),
-      logout: () => set({ username: '', password: '', url: '', isAuthenticated: false }),
+      _hasHydrated: false, // Inicia como false
+      
+      setHasHydrated: (state) => { // Ação para marcar como hidratado
+        set({
+          _hasHydrated: state
+        });
+      },
+
+      // ... outras ações (login, logout, etc.)
     }),
     {
-      name: 'apple-stream-auth',
+      name: 'auth-storage',
+      // CHAVE DA SOLUÇÃO: Marcar como hidratado após a leitura do storage
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      // ...
     }
   )
 );
