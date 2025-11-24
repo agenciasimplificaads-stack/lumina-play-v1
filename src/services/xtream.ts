@@ -76,7 +76,7 @@ export const XtreamService = {
     }
   },
 
-  // --- URL GENERATOR (PROXY) ---
+  // --- URL GENERATOR ---
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
@@ -93,8 +93,7 @@ export const XtreamService = {
 
     const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
 
-    // Retorna passando pelo nosso Proxy Seguro
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
-};
 
+};
