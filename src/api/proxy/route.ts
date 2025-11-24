@@ -2,44 +2,51 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  
-  // Captura os parâmetros enviados pelo Front-end
   const action = searchParams.get('action');
   const user = searchParams.get('username');
   const pass = searchParams.get('password');
-  const host = searchParams.get('host'); // Esperamos http://svrhost.club
-  const category_id = searchParams.get('category_id');
-  const stream_id = searchParams.get('stream_id');
+  const host = searchParams.get('host');
+  
+  // Pega outros params dinamicamente (vod_id, series_id, category_id)
+  const otherParams = new URLSearchParams(searchParams);
+  otherParams.delete('action');
+  otherParams.delete('username');
+  otherParams.delete('password');
+  otherParams.delete('host');
 
-  // Validação básica
   if (!host || !user || !pass) {
-    return NextResponse.json({ error: 'Faltam credenciais' }, { status: 400 });
+    return NextResponse.json({ error: 'Credenciais ausentes' }, { status: 400 });
   }
 
   try {
-    // Monta a URL original do servidor IPTV
-    let apiUrl = `${host}/player_api.php?username=${user}&password=${pass}&action=${action}`;
-    
-    // Adiciona parâmetros opcionais se existirem
-    if (category_id) apiUrl += `&category_id=${category_id}`;
-    if (stream_id) apiUrl += `&stream_id=${stream_id}`;
+    // Monta a URL final com todos os parâmetros extras (vod_id, etc)
+    const apiUrl = `${host}/player_api.php?username=${user}&password=${pass}&action=${action}&${otherParams.toString()}`;
 
-    console.log(`Proxyando requisição para: ${action}`);
-
-    // O Servidor Next.js faz a chamada (Server-to-Server não tem bloqueio de CORS/Mixed Content)
-    const response = await fetch(apiUrl);
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'IPTV Smarters Pro',
+      }
+    });
     
     if (!response.ok) {
-      throw new Error(`Erro no servidor IPTV: ${response.status}`);
+      throw new Error(`Status IPTV: ${response.status}`);
     }
 
-    const data = await response.json();
-
-    // Retorna para o seu site
-    return NextResponse.json(data);
+    // BLINDAGEM: Verifica se é JSON antes de tentar ler
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        const data = await response.json();
+        return NextResponse.json(data);
+    } else {
+        // Se não for JSON (ex: erro HTML do servidor), retorna texto ou erro tratado
+        const text = await response.text();
+        console.error("[Proxy] Resposta não-JSON:", text.substring(0, 100));
+        return NextResponse.json({ error: 'Formato inválido do servidor' }, { status: 502 });
+    }
     
-  } catch (error) {
-    console.error("Erro no Proxy:", error);
-    return NextResponse.json({ error: 'Falha ao conectar no servidor IPTV' }, { status: 500 });
+  } catch (error: any) {
+    console.error("[Proxy Error]:", error.message);
+    return NextResponse.json({ error: 'Falha na conexão' }, { status: 500 });
   }
 }
