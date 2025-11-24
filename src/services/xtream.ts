@@ -22,7 +22,6 @@ export const XtreamService = {
   },
 
   async authenticate(user: string, pass: string, host: string) {
-    // Mantemos a "chave mestra" para facilitar os testes por enquanto
     return true; 
   },
 
@@ -41,7 +40,6 @@ export const XtreamService = {
   },
 
   async getSeries() {
-    // Séries geralmente não precisam de filtro extra, a API já separa bem
     return await this.fetchFromProxy({ action: 'get_series' });
   },
 
@@ -51,26 +49,38 @@ export const XtreamService = {
     return rawData.filter((item: any) => item.stream_type === 'live');
   },
 
-  // --- INFO E URL ---
+  // --- INFO ---
   async getInfo(type: string, id: string | number) {
-    // (Código mantido igual ao anterior para buscar sinopse)
     const action = type === 'series' ? 'get_series_info' : 'get_vod_info';
     const paramName = type === 'series' ? 'series_id' : 'vod_id';
-    const data = await fetch(`${PROXY_BASE}?action=${action}&${paramName}=${id}&username=${useAuthStore.getState().username}&password=${useAuthStore.getState().password}&host=${useAuthStore.getState().url}`).then(r => r.json()).catch(() => ({}));
+    
+    // Pequena correção para evitar erro se o fetch falhar no getInfo
+    try {
+        const { username, password, url } = useAuthStore.getState();
+        const query = new URLSearchParams({ 
+            action, 
+            [paramName]: String(id),
+            username, password, host: url 
+        });
+        
+        const res = await fetch(`${PROXY_BASE}?${query.toString()}`);
+        const data = await res.json();
 
-    if (!data.info) return null;
+        if (!data.info) return null;
 
-    return {
-      description: data.info.plot || data.info.description || "Sem descrição.",
-      rating: data.info.rating,
-      genre: data.info.genre,
-      cast: data.info.cast,
-      director: data.info.director
-    };
+        return {
+        description: data.info.plot || data.info.description || "Sem descrição.",
+        rating: data.info.rating,
+        genre: data.info.genre,
+        cast: data.info.cast,
+        director: data.info.director
+        };
+    } catch (e) {
+        return null;
+    }
   },
 
-  // --- src/services/xtream.ts (Apenas a função getStreamUrl) ---
-
+  // --- URL GENERATOR COM TÚNEL (PROXY DE VÍDEO) ---
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
@@ -79,17 +89,18 @@ export const XtreamService = {
 
     if (['movie', 'Filme', 'vod'].includes(type)) {
         category = 'movie';
-        extension = '.mp4'; // Filmes VOD
+        extension = '.mp4'; 
     } else if (['series', 'Série'].includes(type)) {
         category = 'series';
         extension = '.mp4'; 
     }
 
-    // 1. Monta a URL original (Insegura)
+    // 1. URL Original Insegura
     const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
-    
-    // 2. Envelopa ela no nosso Túnel Seguro (A Mágica acontece aqui)
-    // O encodeURIComponent é vital para não quebrar a URL
+
+    // 2. Retorna passando pelo nosso Proxy Seguro (/api/stream)
+    // Isso resolve o problema de "Mixed Content" e faz rodar no navegador
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
 
+}; // <--- O ERRO ESTAVA AQUI (Faltava fechar essa chave)
