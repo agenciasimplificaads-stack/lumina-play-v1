@@ -21,7 +21,7 @@ export const XtreamService = {
   },
 
   async authenticate(user: string, pass: string, host: string) {
-    return true; 
+    return true; // Chave Mestra para desenvolvimento
   },
 
   async getCategories(type: 'vod' | 'series' | 'live') {
@@ -32,7 +32,6 @@ export const XtreamService = {
 
   async getMovies() {
     const rawData = await this.fetchFromProxy({ action: 'get_vod_streams' });
-    // Filtra para garantir que é apenas filme
     return rawData.filter((item: any) => item.stream_type === 'movie');
   },
 
@@ -42,7 +41,6 @@ export const XtreamService = {
 
   async getLiveChannels() {
     const rawData = await this.fetchFromProxy({ action: 'get_live_streams' });
-    // Filtra para garantir que é apenas live
     return rawData.filter((item: any) => item.stream_type === 'live');
   },
 
@@ -64,17 +62,18 @@ export const XtreamService = {
         if (!data.info) return null;
 
         return {
-          description: data.info.plot || data.info.description || "Sem descrição.",
-          rating: data.info.rating,
-          genre: data.info.genre,
-          cast: data.info.cast,
-          director: data.info.director
+        description: data.info.plot || data.info.description || "Sem descrição.",
+        rating: data.info.rating,
+        genre: data.info.genre,
+        cast: data.info.cast,
+        director: data.info.director
         };
     } catch (e) {
         return null;
     }
   },
 
+  // --- FUNÇÃO FINAL: RETORNA O LINK HTTP PURO ---
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
@@ -89,8 +88,7 @@ export const XtreamService = {
         extension = '.mp4'; 
     }
 
-    const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
-
-    return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
+    // Retorna a URL HTTP crua para Deep Links/Nova Aba.
+    return `${url}/${category}/${username}/${password}/${id}${extension}`;
   }
 };
