@@ -87,36 +87,41 @@ export default function HomePage() {
   if (!mounted) return <div className="min-h-screen bg-[#0F0F0F]" />;
   if (isLoading) return <StartupLoader status={loadStatus} progress={loadProgress} />;
 
+  // ... (imports e lógica do componente HomePage mantidos iguais) ...
+
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-white pb-20 md:pb-10 overflow-x-hidden">
+    <div className="min-h-screen bg-[#0F0F0F] text-white pb-24 md:pb-10 overflow-x-hidden">
       
-      {/* Header */}
-      <header className="px-4 py-3 sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-none md:pt-6">
-        <h1 className="text-lg font-bold mb-3 md:hidden text-center">Lumina Play</h1>
-        <div className="flex justify-center gap-4">
+      <header className="px-4 py-4 sticky top-0 z-30 bg-[#0F0F0F]/95 backdrop-blur-md border-b border-white/5 md:bg-transparent md:border-none md:pt-8">
+        <div className="flex items-center justify-center mb-2 md:hidden">
+           <h1 className="text-lg font-bold text-white tracking-wide">Lumina Play</h1>
+        </div>
+        <div className="flex justify-center gap-3 overflow-x-auto scrollbar-hide pb-1">
           <TabButton label="Filmes" isActive={activeTab === 'filmes'} onClick={() => setActiveTab('filmes')} />
           <TabButton label="Séries" isActive={activeTab === 'series'} onClick={() => setActiveTab('series')} />
           <TabButton label="Ao Vivo" isActive={activeTab === 'aovivo'} onClick={() => setActiveTab('aovivo')} />
         </div>
       </header>
 
-      <main className="mt-4 px-4 md:px-6 space-y-8">
+      <main className="mt-6 space-y-8 pb-10">
         {Object.keys(groupedData).length > 0 ? (
-          Object.entries(groupedData).map(([category, items]) => (
-            <section key={category} className="animate-in fade-in duration-500">
+          Object.keys(groupedData).sort().map((category) => (
+            <section key={category} className="animate-in fade-in duration-500 pl-4 md:pl-6">
+              
               {/* Título da Categoria */}
-              <h2 className="text-sm md:text-lg font-bold text-gray-200 mb-3 flex items-center gap-2">
+              <h2 className="text-sm md:text-xl font-bold text-gray-200 mb-3 flex items-center gap-2">
                 {category}
                 <span className="text-[10px] text-gray-500 border border-white/10 px-1.5 rounded font-normal">
-                  {items.length > 15 ? '15+' : items.length}
+                  {groupedData[category].length}
                 </span>
               </h2>
               
-              {/* TRILHO HORIZONTAL (OTIMIZADO) */}
-              {/* slice(0, 15) -> O SEGREDO DA PERFORMANCE: Mostra apenas 15 itens */}
-              <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
-                {items.slice(0, 15).map((item: any) => (
-                  <div key={item.stream_id || item.series_id} className="snap-start flex-shrink-0" onClick={() => setSelectedItem(item)}>
+              {/* --- AQUI ESTÁ A CORREÇÃO DO LAYOUT --- */}
+              {/* flex-nowrap: OBRIGA a ficar em uma linha só */}
+              {/* overflow-x-auto: Permite rolar para o lado */}
+              <div className="flex flex-nowrap gap-3 overflow-x-auto pb-4 pr-4 scrollbar-hide snap-x snap-mandatory">
+                {groupedData[category].slice(0, 15).map((item: any) => (
+                  <div key={item.stream_id || item.series_id} className="flex-shrink-0 snap-start w-28 md:w-40" onClick={() => setSelectedItem(item)}>
                     <div className="pointer-events-none"> 
                         <MediaCard 
                           id={item.stream_id || item.series_id}
@@ -127,13 +132,15 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
-                {/* Espaço final para não cortar o último item */}
-                <div className="w-4 flex-shrink-0" />
+                {/* Espaço fantasma para o último item não colar na borda */}
+                <div className="w-2 flex-shrink-0" />
               </div>
             </section>
           ))
         ) : (
-           <div className="text-center mt-20 text-gray-500 text-sm">Nada encontrado nesta seção.</div>
+           <div className="text-center mt-20 text-gray-500 text-sm px-10">
+             Selecione uma categoria acima para carregar o conteúdo.
+           </div>
         )}
       </main>
 
@@ -142,6 +149,8 @@ export default function HomePage() {
   );
 }
 
+// ... (TabButton mantido igual)
+
 function TabButton({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) {
   return (
     <button onClick={onClick} className={clsx("px-4 py-1.5 rounded-full text-xs md:text-sm font-medium transition-all", isActive ? "bg-white text-black font-bold shadow-lg" : "bg-white/5 text-gray-400 hover:bg-white/10")}>
@@ -149,3 +158,4 @@ function TabButton({ label, isActive, onClick }: { label: string, isActive: bool
     </button>
   );
 }
+
