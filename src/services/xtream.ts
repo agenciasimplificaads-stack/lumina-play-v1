@@ -69,6 +69,8 @@ export const XtreamService = {
     };
   },
 
+  // --- src/services/xtream.ts (Apenas a função getStreamUrl) ---
+
   getStreamUrl(type: string, id: string | number) {
     const { username, password, url } = useAuthStore.getState();
     
@@ -77,12 +79,17 @@ export const XtreamService = {
 
     if (['movie', 'Filme', 'vod'].includes(type)) {
         category = 'movie';
-        extension = '.mp4'; 
+        extension = '.mp4'; // Filmes VOD
     } else if (['series', 'Série'].includes(type)) {
         category = 'series';
         extension = '.mp4'; 
     }
 
-    return `${url}/${category}/${username}/${password}/${id}${extension}`;
+    // 1. Monta a URL original (Insegura)
+    const originalUrl = `${url}/${category}/${username}/${password}/${id}${extension}`;
+    
+    // 2. Envelopa ela no nosso Túnel Seguro (A Mágica acontece aqui)
+    // O encodeURIComponent é vital para não quebrar a URL
+    return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
-};
+
