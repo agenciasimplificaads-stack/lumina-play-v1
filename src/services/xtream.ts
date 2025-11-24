@@ -96,5 +96,5 @@ export const XtreamService = {
     // Retorna passando pelo nosso Proxy Seguro
     return `/api/stream?url=${encodeURIComponent(originalUrl)}`;
   }
-
 };
+
